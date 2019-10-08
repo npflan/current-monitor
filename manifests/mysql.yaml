@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: current-mysql
+  namespace: current
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+  clusterIP: 10.96.15.10
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: current
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+
+        image: mysql:5.6
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "12345678"
+        - name: MYSQL_ROOT_HOST
+          value: "%"
+        - name: MYSQL_DATABASE
+          value: "npf"
+        - name: MYSQL_USER
+          value: "monitor"
+        - name: MYSQL_PASSWORD
+          value: "12345678"
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: currnet-mysql-storage 
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: current-mysql
+  namespace: current
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /kube/current
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - brigitte
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: currnet-mysql-storage
+  namespace: current
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
